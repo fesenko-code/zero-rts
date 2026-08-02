@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { World } from './world';
-import { MAP_W, MAP_H, COLORS, TILE } from './config';
+import { MAP_W, MAP_H, COLORS, TILE, TECHS } from './config';
 import { Unit } from './entities';
 
 export class Renderer {
@@ -148,21 +148,111 @@ export class Renderer {
     for (const t of this.hudText) t.destroy();
     this.hudText = [];
     const p = this.world.players[0];
-    const lines = [
-      `Resources  food:${Math.floor(p.res.food)}  wood:${Math.floor(p.res.wood)}  stone:${Math.floor(p.res.stone)}  gold:${Math.floor(p.res.gold)}`,
-      `Population  ${p.popUsed} / ${p.popCap}`,
-      this.world.winner !== null ? `WINNER: ${this.world.winner === 0 ? 'PLAYER' : 'ENEMY'}` : '',
-      `Selected: ${this.selected.length} unit(s)   |   Left-drag: select   Right-click: command`,
-      `B: barracks  H: house  F: farm  T: tower  (left-click to place)`,
-      `V: villager  S: soldier  A: archer  C: cavalry  (from barracks)`,
-      `R: research next tech  |  Right-click: command  Left-drag: select`,
-    ].filter(Boolean);
-    lines.forEach((ln, i) => {
-      const t = new Text({ text: ln, style: { fill: 0xe8e8e8, fontSize: 13, fontFamily: 'monospace' } });
-      t.x = 14; t.y = 36 + i * 18;
+    const w = this.app.screen.width;
+    const h = this.app.screen.height;
+
+    // ---- top bar (semi-transparent) ----
+    const topH = 30;
+    const bar = new Graphics();
+    bar.rect(0, 0, w, topH).fill({ color: 0x101418, alpha: 0.72 });
+    bar.rect(0, topH, w, 1).fill({ color: 0x3a4a55, alpha: 0.9 });
+    this.hud.addChild(bar);
+    this.hudText.push(bar as unknown as Text);
+
+    const resColors = ['#6fae54', '#7a5a3a', '#9aa0a6', '#d9b94e'];
+    const resNames = ['food', 'wood', 'stone', 'gold'] as const;
+    const resVals = [p.res.food, p.res.wood, p.res.stone, p.res.gold];
+    let x = 14;
+    resNames.forEach((_rn, i) => {
+      const dot = new Graphics();
+      dot.circle(x + 5, topH / 2, 5).fill(resColors[i]);
+      this.hud.addChild(dot);
+      this.hudText.push(dot as unknown as Text);
+      const t = new Text({ text: `${Math.floor(resVals[i])}`, style: { fill: 0xe8e8e8, fontSize: 14, fontFamily: 'monospace' } });
+      t.x = x + 14; t.y = 7;
       this.hud.addChild(t);
       this.hudText.push(t);
+      x += 14 + Math.max(40, t.width + 12);
     });
+
+    // population
+    const pop = new Text({ text: `Pop ${p.popUsed}/${p.popCap}`, style: { fill: 0x9bd1a8, fontSize: 14, fontFamily: 'monospace' } });
+    pop.x = x + 8; pop.y = 7;
+    this.hud.addChild(pop);
+    this.hudText.push(pop);
+    x = pop.x + pop.width + 20;
+
+    // timer
+    const time = new Text({ text: `t=${this.world.time.toFixed(0)}s`, style: { fill: 0xbfcad0, fontSize: 14, fontFamily: 'monospace' } });
+    time.x = x; time.y = 7;
+    this.hud.addChild(time);
+    this.hudText.push(time);
+    x = time.x + time.width + 20;
+
+    // research status
+    const active = this.world.research.find((r) => r.owner === 0);
+    if (active) {
+      const tech = TECHS.find((t) => t.id === active.techId);
+      const txt = `Researching: ${tech?.name ?? active.techId} ${Math.floor(active.time)}/${active.total}s`;
+      const rt = new Text({ text: txt, style: { fill: 0xffe066, fontSize: 13, fontFamily: 'monospace' } });
+      rt.x = x; rt.y = 8;
+      this.hud.addChild(rt);
+      this.hudText.push(rt);
+    } else if (this.world.researched.size > 0) {
+      const names = [...this.world.researched].map((id) => TECHS.find((t) => t.id === id)?.name ?? id).join(', ');
+      const rt = new Text({ text: `Researched: ${names}`, style: { fill: 0x9bbf8a, fontSize: 13, fontFamily: 'monospace' } });
+      rt.x = x; rt.y = 8;
+      this.hud.addChild(rt);
+      this.hudText.push(rt);
+    }
+
+    // ---- unit / building counts (right side of top bar) ----
+    const myUnits = this.world.units.filter((u) => u.owner === 0).length;
+    const myBuildings = this.world.buildings.filter((b) => b.owner === 0 && b.alive).length;
+    const enemyUnits = this.world.units.filter((u) => u.owner === 1).length;
+    const counts = new Text({
+      text: `You: ${myUnits}u ${myBuildings}b   Enemy: ${enemyUnits}u`,
+      style: { fill: 0xe8e8e8, fontSize: 13, fontFamily: 'monospace' },
+    });
+    counts.x = w - counts.width - 14; counts.y = 7;
+    this.hud.addChild(counts);
+    this.hudText.push(counts);
+
+    // ---- bottom hint bar ----
+    const botH = 22;
+    const bot = new Graphics();
+    bot.rect(0, h - botH, w, botH).fill({ color: 0x101418, alpha: 0.72 });
+    bot.rect(0, h - botH, w, 1).fill({ color: 0x3a4a55, alpha: 0.9 });
+    this.hud.addChild(bot);
+    this.hudText.push(bot as unknown as Text);
+
+    const hint = new Text({
+      text: 'Left-drag: select   Right-click: command   B/H/F/T: build   V/S/A/C: train (barracks)   R: research',
+      style: { fill: 0xbfcad0, fontSize: 12, fontFamily: 'monospace' },
+    });
+    hint.x = 14; hint.y = h - botH + 4;
+    this.hud.addChild(hint);
+    this.hudText.push(hint);
+
+    const sel = new Text({
+      text: this.selected.length ? `Selected: ${this.selected.length}` : '',
+      style: { fill: 0xffe066, fontSize: 12, fontFamily: 'monospace' },
+    });
+    sel.x = w - sel.width - 14; sel.y = h - botH + 4;
+    this.hud.addChild(sel);
+    this.hudText.push(sel);
+
+    // ---- winner overlay ----
+    if (this.world.winner !== null) {
+      const banner = new Text({
+        text: this.world.winner === 0 ? 'VICTORY' : 'DEFEAT',
+        style: { fill: this.world.winner === 0 ? 0x6fe08a : 0xe06f6f, fontSize: 48, fontFamily: 'monospace', fontWeight: 'bold' },
+      });
+      banner.anchor.set(0.5);
+      banner.x = w / 2; banner.y = h / 2;
+      this.hud.addChild(banner);
+      this.hudText.push(banner);
+    }
   }
 
   centerCameraOn(x: number, y: number) {
