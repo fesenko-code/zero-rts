@@ -4,6 +4,7 @@ import { Renderer } from './render';
 import { Unit, Building, ResourceNode } from './entities';
 import { dist, Vec2 } from './math';
 import { BUILDING, TECHS } from './config';
+import { NetCmd } from './types';
 
 // Input controller: selection box, right-click commands, hotkeys.
 export class Input {
@@ -15,6 +16,8 @@ export class Input {
   dragCur: Vec2 = { x: 0, y: 0 };
   buildMode: 'barracks' | 'house' | 'farm' | 'tower' | null = null;
   selBox = new Graphics();
+  // If set (guest mode), commands are forwarded to the network instead of applied locally.
+  netSend: ((c: NetCmd) => void) | null = null;
 
   constructor(world: World, renderer: Renderer, app: any) {
     this.world = world;
@@ -124,11 +127,20 @@ export class Input {
     const villager = sel.find((u) => u.kind === 'villager');
     if ((enemyUnit || enemyBld) && sel.some((u) => u.kind === 'soldier' || u.kind === 'villager')) {
       const t: any = enemyUnit || enemyBld;
-      for (const u of sel) this.world.issueAttack(u, t);
+      for (const u of sel) {
+        if (this.netSend) this.netSend({ op: 'attack', unitId: u.id, targetId: t.id });
+        else this.world.issueAttack(u, t);
+      }
     } else if (resNode && villager) {
-      for (const u of sel) if (u.kind === 'villager') this.world.issueGather(u, resNode);
+      for (const u of sel) {
+        if (this.netSend) this.netSend({ op: 'gather', unitId: u.id, nodeId: resNode.id });
+        else this.world.issueGather(u, resNode);
+      }
     } else {
-      for (const u of sel) this.world.issueMove(u, wpt);
+      for (const u of sel) {
+        if (this.netSend) this.netSend({ op: 'move', unitId: u.id, x: wpt.x, y: wpt.y });
+        else this.world.issueMove(u, wpt);
+      }
     }
   }
 
@@ -168,16 +180,16 @@ export class Input {
       // train from player's town center / barracks
       const tc = this.world.buildings.find((b) => b.owner === 0 && b.kind === 'towncenter');
       const bar = this.world.buildings.find((b) => b.owner === 0 && b.kind === 'barracks');
-      if (k === 'v' && tc) this.world.train(tc, 'villager');
-      if (k === 's' && bar) this.world.train(bar, 'soldier');
-      if (k === 'a' && bar) this.world.train(bar, 'archer');
-      if (k === 'c' && bar) this.world.train(bar, 'cavalry');
+      if (k === 'v' && tc) { if (this.netSend) this.netSend({ op: 'train', buildingId: tc.id, kind: 'villager' }); else this.world.train(tc, 'villager'); }
+      if (k === 's' && bar) { if (this.netSend) this.netSend({ op: 'train', buildingId: bar.id, kind: 'soldier' }); else this.world.train(bar, 'soldier'); }
+      if (k === 'a' && bar) { if (this.netSend) this.netSend({ op: 'train', buildingId: bar.id, kind: 'archer' }); else this.world.train(bar, 'archer'); }
+      if (k === 'c' && bar) { if (this.netSend) this.netSend({ op: 'train', buildingId: bar.id, kind: 'cavalry' }); else this.world.train(bar, 'cavalry'); }
     } else if (k === 'r') {
       // research first available tech from player's town center
       const tc = this.world.buildings.find((b) => b.owner === 0 && b.kind === 'towncenter');
       if (tc) {
         const next = TECHS.find((t) => !this.world.researched.has(t.id) && !this.world.research.some((r) => r.owner === 0 && r.techId === t.id));
-        if (next) this.world.researchTech(0, next.id);
+        if (next) { if (this.netSend) this.netSend({ op: 'research', owner: 0, techId: next.id }); else this.world.researchTech(0, next.id); }
       }
     } else if (k === 'arrowleft') this.r.pan(40, 0);
     else if (k === 'arrowright') this.r.pan(-40, 0);
@@ -188,10 +200,8 @@ export class Input {
   private placeBuilding(p: Vec2) {
     const wpt = this.r.screenToWorld(p.x, p.y);
     const kind = this.buildMode!;
-    const ok = this.world.build(0, kind, wpt);
+    if (this.netSend) this.netSend({ op: 'build', owner: 0, kind, x: wpt.x, y: wpt.y });
+    else this.world.build(0, kind, wpt);
     this.buildMode = null;
-    if (!ok) {
-      // not enough resources - could flash a message
-    }
   }
 }

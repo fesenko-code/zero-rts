@@ -22,3 +22,12 @@ export const emptyBag = (): ResourceBag => ({ food: 0, wood: 0, stone: 0, gold: 
 export function bagCost(b: ResourceBag): number {
   return b.food + b.wood + b.stone + b.gold;
 }
+
+// Network command op-codes (host <-> guest relay)
+export type NetCmd =
+  | { op: 'move'; unitId: number; x: number; y: number }
+  | { op: 'gather'; unitId: number; nodeId: number }
+  | { op: 'attack'; unitId: number; targetId: number }
+  | { op: 'train'; buildingId: number; kind: string }
+  | { op: 'build'; owner: number; kind: string; x: number; y: number }
+  | { op: 'research'; owner: number; techId: string };

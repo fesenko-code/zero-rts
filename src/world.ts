@@ -280,6 +280,71 @@ export class World {
     }
   }
 
+  // ---- Network: snapshot serialization (host -> guest) ----
+  toSnapshot(): any {
+    return {
+      t: this.time,
+      res: this.players.map((p) => ({ ...p.res })),
+      units: this.units.map((u) => ({ id: u.id, owner: u.owner, kind: u.kind, x: u.pos.x, y: u.pos.y, hp: u.hp, st: u.state })),
+      buildings: this.buildings.map((b) => ({ id: b.id, owner: b.owner, kind: b.kind, x: b.pos.x, y: b.pos.y, hp: b.hp })),
+      winner: this.winner,
+    };
+  }
+
+  // Apply a snapshot received from host (guest side). Rebuilds unit/building positions.
+  applySnapshot(s: any) {
+    if (!s) return;
+    this.time = s.t;
+    if (s.res) for (let i = 0; i < this.players.length && i < s.res.length; i++) this.players[i].res = { ...s.res[i] };
+    this.winner = s.winner;
+    // Update existing units by id, drop missing (dead), add new.
+    const byId = new Map(this.units.map((u) => [u.id, u]));
+    const next: Unit[] = [];
+    for (const su of s.units) {
+      let u = byId.get(su.id);
+      if (!u) { u = this.makeUnit(su.owner as any, su.kind as any, v(su.x, su.y)); u.id = su.id; }
+      u.pos = v(su.x, su.y); u.hp = su.hp; u.state = su.st as any;
+      next.push(u);
+    }
+    this.units = next;
+    const bById = new Map(this.buildings.map((b) => [b.id, b]));
+    const bnext: Building[] = [];
+    for (const sb of s.buildings) {
+      let b = bById.get(sb.id);
+      if (!b) { b = this.makeBuilding(sb.owner as any, sb.kind as any, v(sb.x, sb.y)); b.id = sb.id; }
+      b.pos = v(sb.x, sb.y); b.hp = sb.hp;
+      bnext.push(b);
+    }
+    this.buildings = bnext;
+  }
+
+  // Apply a command from a remote player (host side).
+  applyCmd(c: any) {
+    switch (c.op) {
+      case 'move': {
+        const u = this.units.find((x) => x.id === c.unitId); if (u) this.issueMove(u, v(c.x, c.y)); break;
+      }
+      case 'gather': {
+        const u = this.units.find((x) => x.id === c.unitId); const n = this.resources.find((r) => r.id === c.nodeId);
+        if (u && n) this.issueGather(u, n); break;
+      }
+      case 'attack': {
+        const u = this.units.find((x) => x.id === c.unitId);
+        const t = this.units.find((x) => x.id === c.targetId) || this.buildings.find((x) => x.id === c.targetId);
+        if (u && t) this.issueAttack(u, t as any); break;
+      }
+      case 'train': {
+        const b = this.buildings.find((x) => x.id === c.buildingId); if (b) this.train(b, c.kind); break;
+      }
+      case 'build': {
+        this.build(c.owner, c.kind, v(c.x, c.y)); break;
+      }
+      case 'research': {
+        this.researchTech(c.owner, c.techId); break;
+      }
+    }
+  }
+
   // ---- Simulation step (fixed dt) ----
   step(dt: number) {
     this.time += dt;
