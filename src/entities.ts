@@ -97,15 +97,16 @@ export class ResourceNode {
 export class Building {
   id = nextId();
   owner: Owner;
-  kind: 'towncenter' | 'barracks' | 'house';
+  kind: 'towncenter' | 'barracks' | 'house' | 'farm' | 'tower';
   pos: Vec2;          // center
   hp: number;
   maxHp: number;
   alive = true;
-  trainQueue: { kind: 'villager' | 'soldier'; time: number; total: number }[] = [];
+  attackCd = 0;       // for tower auto-fire
+  trainQueue: { kind: 'villager' | 'soldier' | 'archer' | 'cavalry'; time: number; total: number }[] = [];
   population: number; // pop provided
 
-  constructor(owner: Owner, kind: 'towncenter' | 'barracks' | 'house', pos: Vec2) {
+  constructor(owner: Owner, kind: 'towncenter' | 'barracks' | 'house' | 'farm' | 'tower', pos: Vec2) {
     this.owner = owner;
     this.kind = kind;
     this.pos = { ...pos };

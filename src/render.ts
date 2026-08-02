@@ -106,9 +106,14 @@ export class Renderer {
       const r = u.def.radius;
       g.circle(u.pos.x, u.pos.y, r).fill(col);
       g.circle(u.pos.x, u.pos.y, r).stroke({ width: 2, color: 0x101010, alpha: 0.8 });
-      // little marker: villager = small square dot, soldier = sword-ish triangle
+      // little marker: villager = small square dot, soldier = sword-ish triangle,
+      // archer = upward chevron, cavalry = diamond
       if (u.kind === 'soldier') {
         g.moveTo(u.pos.x, u.pos.y - r - 5).lineTo(u.pos.x - 4, u.pos.y - r).lineTo(u.pos.x + 4, u.pos.y - r).closePath().fill(0xffffff);
+      } else if (u.kind === 'archer') {
+        g.moveTo(u.pos.x, u.pos.y - r - 5).lineTo(u.pos.x - 4, u.pos.y - r + 2).lineTo(u.pos.x + 4, u.pos.y - r + 2).closePath().fill(0xffffff);
+      } else if (u.kind === 'cavalry') {
+        g.moveTo(u.pos.x, u.pos.y - r - 5).lineTo(u.pos.x + 5, u.pos.y - r).lineTo(u.pos.x, u.pos.y - r + 5).lineTo(u.pos.x - 5, u.pos.y - r).closePath().fill(0xffffff);
       } else {
         g.circle(u.pos.x, u.pos.y, 3).fill(0xffffff);
       }
@@ -148,7 +153,9 @@ export class Renderer {
       `Population  ${p.popUsed} / ${p.popCap}`,
       this.world.winner !== null ? `WINNER: ${this.world.winner === 0 ? 'PLAYER' : 'ENEMY'}` : '',
       `Selected: ${this.selected.length} unit(s)   |   Left-drag: select   Right-click: command`,
-      `B: barracks  H: house  V: train villager  S: train soldier`,
+      `B: barracks  H: house  F: farm  T: tower  (left-click to place)`,
+      `V: villager  S: soldier  A: archer  C: cavalry  (from barracks)`,
+      `R: research next tech  |  Right-click: command  Left-drag: select`,
     ].filter(Boolean);
     lines.forEach((ln, i) => {
       const t = new Text({ text: ln, style: { fill: 0xe8e8e8, fontSize: 13, fontFamily: 'monospace' } });

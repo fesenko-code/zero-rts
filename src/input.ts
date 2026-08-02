@@ -3,7 +3,7 @@ import { World } from './world';
 import { Renderer } from './render';
 import { Unit, Building, ResourceNode } from './entities';
 import { dist, Vec2 } from './math';
-import { BUILDING } from './config';
+import { BUILDING, TECHS } from './config';
 
 // Input controller: selection box, right-click commands, hotkeys.
 export class Input {
@@ -13,7 +13,7 @@ export class Input {
   dragging = false;
   dragStart: Vec2 = { x: 0, y: 0 };
   dragCur: Vec2 = { x: 0, y: 0 };
-  buildMode: 'barracks' | 'house' | null = null;
+  buildMode: 'barracks' | 'house' | 'farm' | 'tower' | null = null;
   selBox = new Graphics();
 
   constructor(world: World, renderer: Renderer, app: any) {
@@ -161,13 +161,24 @@ export class Input {
     const k = e.key.toLowerCase();
     if (k === 'b') this.buildMode = 'barracks';
     else if (k === 'h') this.buildMode = 'house';
+    else if (k === 'f') this.buildMode = 'farm';
+    else if (k === 't') this.buildMode = 'tower';
     else if (k === 'escape') this.buildMode = null;
-    else if (k === 'v' || k === 's') {
+    else if (k === 'v' || k === 's' || k === 'a' || k === 'c') {
       // train from player's town center / barracks
       const tc = this.world.buildings.find((b) => b.owner === 0 && b.kind === 'towncenter');
       const bar = this.world.buildings.find((b) => b.owner === 0 && b.kind === 'barracks');
       if (k === 'v' && tc) this.world.train(tc, 'villager');
       if (k === 's' && bar) this.world.train(bar, 'soldier');
+      if (k === 'a' && bar) this.world.train(bar, 'archer');
+      if (k === 'c' && bar) this.world.train(bar, 'cavalry');
+    } else if (k === 'r') {
+      // research first available tech from player's town center
+      const tc = this.world.buildings.find((b) => b.owner === 0 && b.kind === 'towncenter');
+      if (tc) {
+        const next = TECHS.find((t) => !this.world.researched.has(t.id) && !this.world.research.some((r) => r.owner === 0 && r.techId === t.id));
+        if (next) this.world.researchTech(0, next.id);
+      }
     } else if (k === 'arrowleft') this.r.pan(40, 0);
     else if (k === 'arrowright') this.r.pan(-40, 0);
     else if (k === 'arrowup') this.r.pan(0, 40);

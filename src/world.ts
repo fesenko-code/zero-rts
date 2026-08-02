@@ -1,6 +1,6 @@
 import { Vec2, v, dist, sub, norm, scale, add, len, clamp } from './math';
 import { Owner, ResourceBag, ResourceType, emptyBag } from './types';
-import { UNIT, BUILDING, TRAIN, STARTING, POP_CAP_BASE, SIM_TICK, MAP_W, MAP_H } from './config';
+import { UNIT, BUILDING, TRAIN, STARTING, POP_CAP_BASE, SIM_TICK, MAP_W, MAP_H, TECHS } from './config';
 import { Grid } from './grid';
 import { Unit, Building, ResourceNode } from './entities';
 
@@ -20,6 +20,9 @@ export class World {
   players: PlayerState[] = [];
   time = 0;
   winner: Owner | null = null;
+  // Tech research progress per owner: { owner, techId, time, total }
+  research: { owner: Owner; techId: string; time: number; total: number }[] = [];
+  researched: Set<string> = new Set(); // tech ids already applied (global for simplicity)
 
   constructor(map?: any) {
     this.players = [
@@ -110,7 +113,7 @@ export class World {
     }
   }
 
-  makeBuilding(owner: Owner, kind: 'towncenter' | 'barracks' | 'house', pos: Vec2): Building {
+  makeBuilding(owner: Owner, kind: 'towncenter' | 'barracks' | 'house' | 'farm' | 'tower', pos: Vec2): Building {
     const b = new Building(owner, kind, pos);
     this.buildings.push(b);
     const r = b.rect;
@@ -122,7 +125,7 @@ export class World {
     return b;
   }
 
-  makeUnit(owner: Owner, kind: 'villager' | 'soldier', pos: Vec2): Unit {
+  makeUnit(owner: Owner, kind: 'villager' | 'soldier' | 'archer' | 'cavalry', pos: Vec2): Unit {
     const u = new Unit(owner, kind, pos);
     this.units.push(u);
     return u;
@@ -207,7 +210,7 @@ export class World {
   }
 
   // Train a unit from a building if affordable & pop available
-  train(b: Building, kind: 'villager' | 'soldier'): boolean {
+  train(b: Building, kind: 'villager' | 'soldier' | 'archer' | 'cavalry'): boolean {
     const t = TRAIN[kind];
     if (!this.canAfford(b.owner, t.cost)) return false;
     const p = this.players[b.owner];
@@ -219,7 +222,7 @@ export class World {
     return true;
   }
 
-  build(owner: Owner, kind: 'barracks' | 'house', pos: Vec2): boolean {
+  build(owner: Owner, kind: 'barracks' | 'house' | 'farm' | 'tower', pos: Vec2): boolean {
     const cost = BUILDING[kind].cost as Partial<ResourceBag>;
     if (!this.canAfford(owner, cost)) return false;
     this.spend(owner, cost);
@@ -227,12 +230,74 @@ export class World {
     return true;
   }
 
+  // Begin researching a tech for an owner. Returns false if already known / unaffordable.
+  researchTech(owner: Owner, techId: string): boolean {
+    const tech = TECHS.find((t) => t.id === techId);
+    if (!tech) return false;
+    if (this.researched.has(techId)) return false;
+    if (this.research.some((r) => r.owner === owner && r.techId === techId)) return false;
+    // gate: requires N buildings of a kind
+    if (tech.requires?.building) {
+      const have = this.buildings.filter((b) => b.alive && b.owner === owner && b.kind === tech.requires!.building).length;
+      if (have < (tech.requires.count ?? 1)) return false;
+    }
+    if (!this.canAfford(owner, tech.cost)) return false;
+    this.spend(owner, tech.cost);
+    this.research.push({ owner, techId, time: 0, total: tech.researchTime });
+    return true;
+  }
+
+  // Apply a finished tech: multiply matching unit/building fields (unified modifier engine).
+  // NOTE: def objects (UNIT[kind] / BUILDING[kind]) are shared, so we multiply the def ONCE
+  // per tech, not per-unit (otherwise the multiplier compounds on every unit).
+  private applyTech(techId: string) {
+    const tech = TECHS.find((t) => t.id === techId);
+    if (!tech || this.researched.has(techId)) return;
+    this.researched.add(techId);
+
+    // 1) Apply field multipliers to the shared defs exactly once.
+    for (const m of tech.mods) {
+      if (m.scope === 'unit') {
+        const def = (m.kind === '*' ? Object.values(UNIT) : [UNIT[m.kind as keyof typeof UNIT]]) as any[];
+        for (const d of def) if (typeof d[m.field] === 'number') d[m.field] *= m.mult;
+      } else {
+        const def = (m.kind === '*' ? Object.values(BUILDING) : [BUILDING[m.kind as keyof typeof BUILDING]]) as any[];
+        for (const d of def) if (typeof d[m.field] === 'number') d[m.field] *= m.mult;
+      }
+    }
+
+    // 2) Refresh live instances (hp scales with maxHp for units).
+    for (const u of this.units) {
+      const d = (u as any).def;
+      u.maxHp = d.hp;
+      // keep current damage ratio
+      const ratio = u.hp / (u.maxHp || d.hp);
+      u.hp = d.hp * ratio;
+    }
+    for (const b of this.buildings) {
+      const d = (b as any).def;
+      b.maxHp = d.hp;
+    }
+  }
+
   // ---- Simulation step (fixed dt) ----
   step(dt: number) {
     this.time += dt;
+    this.stepResearch(dt);
     this.stepUnits(dt);
     this.stepBuildings(dt);
     this.checkVictory();
+  }
+
+  private stepResearch(dt: number) {
+    for (let i = this.research.length - 1; i >= 0; i--) {
+      const r = this.research[i];
+      r.time += dt;
+      if (r.time >= r.total) {
+        this.applyTech(r.techId);
+        this.research.splice(i, 1);
+      }
+    }
   }
 
   private stepUnits(dt: number) {
@@ -380,6 +445,40 @@ export class World {
   private stepBuildings(dt: number) {
     for (const b of this.buildings) {
       if (!b.alive) continue;
+      const def = (b as any).def;
+
+      // Farm: passive food generation
+      if (b.kind === 'farm' && def.foodRate) {
+        const r = this.players[b.owner].res;
+        r.food += def.foodRate * dt;
+      }
+
+      // Tower: auto-fire at nearest enemy in range
+      if (b.kind === 'tower' && def.attack && def.range) {
+        let target: Unit | Building | null = null;
+        let bd = def.range * def.range;
+        for (const u of this.units) {
+          if (u.owner === b.owner || u.hp <= 0) continue;
+          const d = (u.pos.x - b.pos.x) ** 2 + (u.pos.y - b.pos.y) ** 2;
+          if (d < bd) { bd = d; target = u; }
+        }
+        if (!target) {
+          for (const e of this.buildings) {
+            if (e.owner === b.owner || !e.alive) continue;
+            const d = (e.pos.x - b.pos.x) ** 2 + (e.pos.y - b.pos.y) ** 2;
+            if (d < bd) { bd = d; target = e; }
+          }
+        }
+        if (target) {
+          b.attackCd = (b.attackCd ?? 0) - dt;
+          if (b.attackCd <= 0) {
+            b.attackCd = def.attackInterval;
+            target.hp -= def.attack;
+            if (target instanceof Building && target.hp <= 0) { target.alive = false; this.onBuildingDestroyed(target); }
+          }
+        }
+      }
+
       if (b.trainQueue.length > 0) {
         const job = b.trainQueue[0];
         job.time += dt;

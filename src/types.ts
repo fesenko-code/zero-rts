@@ -4,9 +4,9 @@ export type Owner = 0 | 1 | 2; // 0 = player, 1 = enemy, 2 = neutral (resources)
 
 export type ResourceType = 'food' | 'wood' | 'stone' | 'gold';
 
-export type UnitKind = 'villager' | 'soldier';
+export type UnitKind = 'villager' | 'soldier' | 'archer' | 'cavalry';
 
-export type BuildingKind = 'towncenter' | 'barracks' | 'house';
+export type BuildingKind = 'towncenter' | 'barracks' | 'house' | 'farm' | 'tower';
 
 export type UnitState = 'idle' | 'move' | 'gather' | 'return' | 'attack';
 
