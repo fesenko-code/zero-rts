@@ -21,12 +21,13 @@ export class World {
   time = 0;
   winner: Owner | null = null;
 
-  constructor() {
+  constructor(map?: any) {
     this.players = [
       { owner: 0, res: { ...STARTING }, popUsed: 0, popCap: POP_CAP_BASE, defeated: false },
       { owner: 1, res: { ...STARTING }, popUsed: 0, popCap: POP_CAP_BASE, defeated: false },
     ];
-    this.generate();
+    if (map) this.loadFromTiled(map);
+    else this.generate();
   }
 
   private generate() {
@@ -48,6 +49,51 @@ export class World {
     this.scatterResources(pTC.pos, 6);
     this.scatterResources(eTC.pos, 6);
     this.scatterResources(v(MAP_W / 2, MAP_H / 2), 8);
+  }
+
+  /**
+   * Load a map authored in Tiled (https://www.mapeditor.org/) exported as JSON.
+   * - tile layer named "terrain": gid > 0 marks a blocked cell.
+   * - object layer named "entities": objects with type building|unit|resource.
+   *   properties: kind, owner (building/unit); rtype, amount (resource).
+   */
+  private loadFromTiled(map: any) {
+    const tw = map.tilewidth ?? 40;
+    const cols = map.width;
+    const rows = map.height;
+    this.grid = new Grid(cols, rows, tw);
+
+    // 1) terrain layer -> blocked grid
+    const terrain = (map.layers ?? []).find((l: any) => l.type === 'tilelayer' && l.name === 'terrain')
+      ?? (map.layers ?? []).find((l: any) => l.type === 'tilelayer');
+    if (terrain && Array.isArray(terrain.data)) {
+      for (let i = 0; i < terrain.data.length; i++) {
+        if (terrain.data[i] > 0) {
+          const cx = i % cols;
+          const cy = Math.floor(i / cols);
+          this.grid.blocked[this.grid.idx(cx, cy)] = 1;
+        }
+      }
+    }
+
+    // 2) entities layer -> buildings / units / resources
+    const ents = (map.layers ?? []).find((l: any) => l.type === 'objectgroup' && l.name === 'entities')
+      ?? (map.layers ?? []).find((l: any) => l.type === 'objectgroup');
+    for (const o of (ents?.objects ?? [])) {
+      const p = o.properties ?? {};
+      const pos = v(o.x, o.y);
+      switch (o.type) {
+        case 'building':
+          this.makeBuilding(p.owner ?? 0, p.kind ?? 'towncenter', pos);
+          break;
+        case 'unit':
+          this.makeUnit(p.owner ?? 0, p.kind ?? 'villager', pos);
+          break;
+        case 'resource':
+          this.resources.push(new ResourceNode(p.rtype ?? 'food', pos, p.amount ?? 500));
+          break;
+      }
+    }
   }
 
   private scatterResources(center: Vec2, n: number) {

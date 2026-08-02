@@ -6,12 +6,16 @@ const ROWS = Math.ceil(MAP_H / TILE);
 
 // Grid of walkability. 1 = blocked (building/resource footprint), 0 = free.
 export class Grid {
-  cols = COLS;
-  rows = ROWS;
+  cols: number;
+  rows: number;
+  tile: number;
   blocked: Uint8Array;
 
-  constructor() {
-    this.blocked = new Uint8Array(COLS * ROWS);
+  constructor(cols: number = COLS, rows: number = ROWS, tile: number = TILE) {
+    this.cols = cols;
+    this.rows = rows;
+    this.tile = tile;
+    this.blocked = new Uint8Array(cols * rows);
   }
 
   idx(cx: number, cy: number): number {
@@ -29,13 +33,13 @@ export class Grid {
 
   worldToCell(p: Vec2): { cx: number; cy: number } {
     return {
-      cx: Math.max(0, Math.min(COLS - 1, Math.floor(p.x / TILE))),
-      cy: Math.max(0, Math.min(ROWS - 1, Math.floor(p.y / TILE))),
+      cx: Math.max(0, Math.min(this.cols - 1, Math.floor(p.x / this.tile))),
+      cy: Math.max(0, Math.min(this.rows - 1, Math.floor(p.y / this.tile))),
     };
   }
 
   cellToWorld(cx: number, cy: number): Vec2 {
-    return { x: cx * TILE + TILE / 2, y: cy * TILE + TILE / 2 };
+    return { x: cx * this.tile + this.tile / 2, y: cy * this.tile + this.tile / 2 };
   }
 
   // Mark a rectangular footprint (in world units) as blocked/unblocked.

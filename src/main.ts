@@ -4,6 +4,7 @@ import { Renderer } from './render';
 import { Input } from './input';
 import { AI } from './ai';
 import { SIM_TICK } from './config';
+import map1 from './maps/map1.json';
 
 async function boot() {
   const app = new Application();
@@ -17,7 +18,9 @@ async function boot() {
   const loading = document.getElementById('loading');
   if (loading) loading.remove();
 
-  const world = new World();
+  // Load a Tiled-authored map (see src/maps/map1.json). Pass undefined to use
+  // the procedural generator instead.
+  const world = new World(map1);
   const renderer = new Renderer(app, world);
   const input = new Input(world, renderer, app);
   const ai = new AI(world);
