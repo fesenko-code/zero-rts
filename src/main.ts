@@ -22,7 +22,11 @@ async function boot() {
   // Load a Tiled-authored map (see src/maps/map1.json). Pass undefined to use
   // the procedural generator instead.
   const world = new World(map1);
-  const ai = new AI(world);                // drives both sides by default
+  // Mode:
+  //   ?mode=ai     -> both sides driven by AI (default; auto-simulation / demo)
+  //   ?mode=human  -> player 0 is human (mouse/keyboard), player 1 is AI
+  const mode = new URLSearchParams(location.search).get('mode') === 'human' ? 'human' : 'ai';
+  const ai = mode === 'ai' ? new AI(world) : new AI(world, 1);
   const renderer = new Renderer(app, world);
   const input = new Input(world, renderer, app);
 
