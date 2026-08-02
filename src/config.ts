@@ -4,7 +4,7 @@ export const MAP_W = 2600;
 export const MAP_H = 2600;
 export const TILE = 40;
 
-export const STARTING: ResourceBag = { food: 350, wood: 250, stone: 150, gold: 120 };
+export const STARTING: ResourceBag = { food: 350, wood: 350, stone: 150, gold: 120 };
 
 export const POP_CAP_BASE = 20; // +HOUSE_POP per house
 export const HOUSE_POP = 6;

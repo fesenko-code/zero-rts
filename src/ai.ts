@@ -36,8 +36,8 @@ export class AI {
     for (let i = 0; i < villagers.length; i++) {
       const v = villagers[i];
       if (v.state === 'idle' && v.carryCount === 0) {
-        // ~1/3 of villagers gather wood, rest food (keeps army production funded)
-        const wantWood = (i % 3 === 0) || w.players[owner].res.wood < 40;
+        // ~1/2 of villagers gather wood (army units need wood), rest food
+        const wantWood = (i % 2 === 0) || w.players[owner].res.wood < 60;
         const node = wantWood ? w.nearestResource(v.pos, 'wood') : w.nearestResource(v.pos, 'food');
         const fallback = wantWood ? w.nearestResource(v.pos, 'food') : w.nearestResource(v.pos, 'wood');
         if (node) w.issueGather(v, node);

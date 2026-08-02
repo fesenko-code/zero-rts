@@ -68,7 +68,13 @@
         {"id": 14, "name": "gold1", "type": "resource", "x": 800, "y": 400, "properties": {"rtype": "gold", "amount": 500}},
         {"id": 15, "name": "food2", "type": "resource", "x": 900, "y": 1000, "properties": {"rtype": "food", "amount": 500}},
         {"id": 16, "name": "wood2", "type": "resource", "x": 700, "y": 600, "properties": {"rtype": "wood", "amount": 500}},
-        {"id": 17, "name": "center", "type": "resource", "x": 640, "y": 640, "properties": {"rtype": "food", "amount": 600}}
+        {"id": 17, "name": "center", "type": "resource", "x": 640, "y": 640, "properties": {"rtype": "food", "amount": 600}},
+        {"id": 18, "name": "wood3", "type": "resource", "x": 420, "y": 980, "properties": {"rtype": "wood", "amount": 500}},
+        {"id": 19, "name": "wood4", "type": "resource", "x": 980, "y": 420, "properties": {"rtype": "wood", "amount": 500}},
+        {"id": 20, "name": "wood5", "type": "resource", "x": 640, "y": 900, "properties": {"rtype": "wood", "amount": 500}},
+        {"id": 21, "name": "wood6", "type": "resource", "x": 900, "y": 640, "properties": {"rtype": "wood", "amount": 500}},
+        {"id": 22, "name": "food4", "type": "resource", "x": 360, "y": 1050, "properties": {"rtype": "food", "amount": 500}},
+        {"id": 23, "name": "food5", "type": "resource", "x": 1040, "y": 350, "properties": {"rtype": "food", "amount": 500}}
       ]
     }
   ]
