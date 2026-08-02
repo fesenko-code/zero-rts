@@ -1,5 +1,3 @@
-import { Vec2 } from './math';
-
 export type Owner = 0 | 1 | 2; // 0 = player, 1 = enemy, 2 = neutral (resources)
 
 export type ResourceType = 'food' | 'wood' | 'stone' | 'gold';

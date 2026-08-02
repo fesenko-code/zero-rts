@@ -1,6 +1,6 @@
-import { Vec2, v, dist, sub, norm, scale, add, len, clamp } from './math';
-import { Owner, ResourceBag, ResourceType, emptyBag } from './types';
-import { UNIT, BUILDING, TRAIN, STARTING, POP_CAP_BASE, SIM_TICK, MAP_W, MAP_H, TECHS } from './config';
+import { Vec2, v, dist, sub, norm, scale, add, clamp } from './math';
+import { Owner, ResourceBag, ResourceType, UnitKind, BuildingKind, UnitState } from './types';
+import { UNIT, BUILDING, TRAIN, STARTING, POP_CAP_BASE, MAP_W, MAP_H, TECHS, UnitDef, BuildingDef } from './config';
 import { Grid } from './grid';
 import { Unit, Building, ResourceNode } from './entities';
 
@@ -258,24 +258,24 @@ export class World {
     // 1) Apply field multipliers to the shared defs exactly once.
     for (const m of tech.mods) {
       if (m.scope === 'unit') {
-        const def = (m.kind === '*' ? Object.values(UNIT) : [UNIT[m.kind as keyof typeof UNIT]]) as any[];
-        for (const d of def) if (typeof d[m.field] === 'number') d[m.field] *= m.mult;
+        const defs: UnitDef[] = m.kind === '*' ? Object.values(UNIT) : [UNIT[m.kind as keyof typeof UNIT]];
+        for (const d of defs) if (typeof (d as unknown as Record<string, number>)[m.field] === 'number') (d as unknown as Record<string, number>)[m.field] *= m.mult;
       } else {
-        const def = (m.kind === '*' ? Object.values(BUILDING) : [BUILDING[m.kind as keyof typeof BUILDING]]) as any[];
-        for (const d of def) if (typeof d[m.field] === 'number') d[m.field] *= m.mult;
+        const defs: BuildingDef[] = m.kind === '*' ? Object.values(BUILDING) : [BUILDING[m.kind as keyof typeof BUILDING]];
+        for (const d of defs) if (typeof (d as unknown as Record<string, number>)[m.field] === 'number') (d as unknown as Record<string, number>)[m.field] *= m.mult;
       }
     }
 
     // 2) Refresh live instances (hp scales with maxHp for units).
     for (const u of this.units) {
-      const d = (u as any).def;
+      const d = u.def;
       u.maxHp = d.hp;
       // keep current damage ratio
       const ratio = u.hp / (u.maxHp || d.hp);
       u.hp = d.hp * ratio;
     }
     for (const b of this.buildings) {
-      const d = (b as any).def;
+      const d = b.def;
       b.maxHp = d.hp;
     }
   }
@@ -302,8 +302,8 @@ export class World {
     const next: Unit[] = [];
     for (const su of s.units) {
       let u = byId.get(su.id);
-      if (!u) { u = this.makeUnit(su.owner as any, su.kind as any, v(su.x, su.y)); u.id = su.id; }
-      u.pos = v(su.x, su.y); u.hp = su.hp; u.state = su.st as any;
+      if (!u) { u = this.makeUnit(su.owner as Owner, su.kind as UnitKind, v(su.x, su.y)); u.id = su.id; }
+      u.pos = v(su.x, su.y); u.hp = su.hp; u.state = su.st as UnitState;
       next.push(u);
     }
     this.units = next;
@@ -311,7 +311,7 @@ export class World {
     const bnext: Building[] = [];
     for (const sb of s.buildings) {
       let b = bById.get(sb.id);
-      if (!b) { b = this.makeBuilding(sb.owner as any, sb.kind as any, v(sb.x, sb.y)); b.id = sb.id; }
+      if (!b) { b = this.makeBuilding(sb.owner as Owner, sb.kind as BuildingKind, v(sb.x, sb.y)); b.id = sb.id; }
       b.pos = v(sb.x, sb.y); b.hp = sb.hp;
       bnext.push(b);
     }
@@ -331,7 +331,7 @@ export class World {
       case 'attack': {
         const u = this.units.find((x) => x.id === c.unitId);
         const t = this.units.find((x) => x.id === c.targetId) || this.buildings.find((x) => x.id === c.targetId);
-        if (u && t) this.issueAttack(u, t as any); break;
+        if (u && t) this.issueAttack(u, t); break;
       }
       case 'train': {
         const b = this.buildings.find((x) => x.id === c.buildingId); if (b) this.train(b, c.kind); break;
@@ -455,14 +455,14 @@ export class World {
         const path = this.grid.findPath(u.pos, drop.pos);
         u.state = 'return';
         u.path = path.length ? path.slice(1) : [drop.pos];
-        (u as any)._drop = drop;
+        u._drop = drop;
       }
     }
   }
 
   private doReturn(u: Unit, dt: number) {
-    const drop = (u as any)._drop as Building | undefined;
-    if (!drop || !drop.alive) { (u as any)._drop = this.nearestDropOff(u); if (!(u as any)._drop) { u.stop(); return; } }
+    let drop = u._drop;
+    if (!drop || !drop.alive) { drop = this.nearestDropOff(u); if (!drop) { u.stop(); return; } u._drop = drop; }
     const d = dist(u.pos, drop!.pos);
     if (d > drop!.def.radius + u.def.radius) {
       this.moveAlongPath(u, dt);
@@ -510,7 +510,7 @@ export class World {
   private stepBuildings(dt: number) {
     for (const b of this.buildings) {
       if (!b.alive) continue;
-      const def = (b as any).def;
+      const def = b.def;
 
       // Farm: passive food generation
       if (b.kind === 'farm' && def.foodRate) {
@@ -537,7 +537,7 @@ export class World {
         if (target) {
           b.attackCd = (b.attackCd ?? 0) - dt;
           if (b.attackCd <= 0) {
-            b.attackCd = def.attackInterval;
+            b.attackCd = def.attackInterval ?? 1;
             target.hp -= def.attack;
             if (target instanceof Building && target.hp <= 0) { target.alive = false; this.onBuildingDestroyed(target); }
           }

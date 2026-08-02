@@ -1,6 +1,4 @@
 import { World } from './world';
-import { Unit } from './entities';
-import { TRAIN } from './config';
 import { Owner } from './types';
 
 // A lightweight AI. By default it drives BOTH players so the game is alive

@@ -1,7 +1,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { World } from './world';
 import { MAP_W, MAP_H, COLORS, TILE } from './config';
-import { Unit, Building, ResourceNode } from './entities';
+import { Unit } from './entities';
 
 export class Renderer {
   app: Application;

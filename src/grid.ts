@@ -84,7 +84,7 @@ export class Grid {
       const cur = open.splice(bi, 1)[0];
       const curIdx = this.idx(cur.cx, cur.cy);
       if (cur.cx === goal.cx && cur.cy === goal.cy) {
-        return this.reconstruct(came, curIdx, goal);
+        return this.reconstruct(came, curIdx);
       }
       for (const [dx, dy] of DIRS) {
         const nx = cur.cx + dx;
@@ -127,7 +127,7 @@ export class Grid {
     return null;
   }
 
-  private reconstruct(came: Map<number, number>, endIdx: number, goal: { cx: number; cy: number }): Vec2[] {
+  private reconstruct(came: Map<number, number>, endIdx: number): Vec2[] {
     const cells: number[] = [endIdx];
     let c = endIdx;
     while (came.has(c)) {

@@ -22,6 +22,7 @@ export class Unit {
   carryType: ResourceType | null = null;
   carryMax: number;
   attackCd = 0;
+  _drop: Building | null = null;           // cached drop-off building for return trips
 
   constructor(owner: Owner, kind: UnitKind, pos: Vec2) {
     this.owner = owner;

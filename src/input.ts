@@ -3,7 +3,7 @@ import { World } from './world';
 import { Renderer } from './render';
 import { Unit, Building, ResourceNode } from './entities';
 import { dist, Vec2 } from './math';
-import { BUILDING, TECHS } from './config';
+import { TECHS } from './config';
 import { NetCmd } from './types';
 
 // Input controller: selection box, right-click commands, hotkeys.
@@ -37,7 +37,6 @@ export class Input {
     window.addEventListener('keydown', (e: any) => this.onKey(e));
     canvas.addEventListener('wheel', (e: any) => {
       e.preventDefault();
-      const f = e.deltaY > 0 ? 1.1 : 0.9;
       this.r.pan(e.movementX * 0, 0); // no zoom, just keep
     }, { passive: false });
   }
@@ -103,7 +102,7 @@ export class Input {
           if (bld.owner !== 0) continue;
           const r = bld.rect;
           if (Math.abs(wpt.x - bld.pos.x) < r.w / 2 && Math.abs(wpt.y - bld.pos.y) < r.h / 2) {
-            (this.r as any).selected = []; // buildings not multi-selectable yet
+            this.r.selected = []; // buildings not multi-selectable yet
             return;
           }
         }

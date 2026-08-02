@@ -55,7 +55,7 @@ async function boot() {
   if (pTC) renderer.centerCameraOn(pTC.pos.x, pTC.pos.y);
 
   // expose for debugging / tests
-  (window as any).__zero = { world, renderer, net, role };
+  (window as unknown as Record<string, unknown>).__zero = { world, renderer, net, role };
   let last = performance.now();
   let acc = 0;
   app.ticker.add(() => {
