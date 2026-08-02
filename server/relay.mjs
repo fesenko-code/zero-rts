@@ -3,7 +3,7 @@
 // Host connects first, guest second. No matchmaking — just a 1:1 relay.
 import { WebSocketServer } from 'ws';
 
-const wss = new WebSocketServer({ port: 8765 });
+const wss = new WebSocketServer({ port: 8766 });
 let host = null;
 let guest = null;
 

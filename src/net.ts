@@ -8,7 +8,7 @@
 //  - GUEST (player 1): renders snapshots, sends commands to host.
 // This is a state-sync relay (not lockstep) — simple and robust for an MVP.
 
-const RELAY_URL = 'ws://127.0.0.1:8765';
+const RELAY_URL = 'ws://127.0.0.1:8766';
 
 export type NetRole = 'host' | 'guest';
 

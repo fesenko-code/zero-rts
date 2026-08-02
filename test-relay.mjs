@@ -1,7 +1,7 @@
 // Relay integration test: host + guest over the standalone WS relay.
 import WebSocket from 'ws';
 
-const URL = 'ws://127.0.0.1:8765';
+const URL = 'ws://127.0.0.1:8766';
 
 async function open(role) {
   return new Promise((res, rej) => {
