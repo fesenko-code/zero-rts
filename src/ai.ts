@@ -3,15 +3,17 @@ import { Unit } from './entities';
 import { TRAIN } from './config';
 import { Owner } from './types';
 
-// A lightweight AI for the enemy player (owner 1).
-// Strategy: keep villagers gathering, build economy, train army, then attack.
+// A lightweight AI. By default it drives BOTH players so the game is alive
+// even without a human clicking (good for demos/testing). Pass a single owner
+// to restrict it to just the enemy side.
 export class AI {
   world: World;
-  owner: Owner = 1;
+  owners: Owner[];
   decisionTimer = 0;
 
-  constructor(world: World) {
+  constructor(world: World, owners: Owner | Owner[] = [0, 1]) {
     this.world = world;
+    this.owners = Array.isArray(owners) ? owners : [owners];
   }
 
   update(dt: number) {
@@ -19,11 +21,15 @@ export class AI {
     if (this.decisionTimer > 0) return;
     this.decisionTimer = 1.2; // re-evaluate ~once per second
 
+    for (const owner of this.owners) this.updateOwner(owner);
+  }
+
+  private updateOwner(owner: Owner) {
     const w = this.world;
-    const myUnits = w.units.filter((u) => u.owner === this.owner);
+    const myUnits = w.units.filter((u) => u.owner === owner);
     const villagers = myUnits.filter((u) => u.kind === 'villager');
     const soldiers = myUnits.filter((u) => u.kind === 'soldier');
-    const myBuildings = w.buildings.filter((b) => b.alive && b.owner === this.owner);
+    const myBuildings = w.buildings.filter((b) => b.alive && b.owner === owner);
 
     if (myBuildings.length === 0) return; // nothing to command
 
@@ -44,16 +50,16 @@ export class AI {
     }
 
     // 3) Build a barracks if we don't have one and can afford
-    if (!myBuildings.some((b) => b.kind === 'barracks') && w.canAfford(this.owner, { wood: 120 })) {
+    if (!myBuildings.some((b) => b.kind === 'barracks') && w.canAfford(owner, { wood: 120 })) {
       const spot = this.findBuildSpot(tc!);
-      if (spot) w.build(this.owner, 'barracks', spot);
+      if (spot) w.build(owner, 'barracks', spot);
     }
 
     // 4) Build houses when pop is tight
-    if (w.players[this.owner].popUsed >= w.players[this.owner].popCap - 2) {
-      if (w.canAfford(this.owner, { wood: 60 })) {
+    if (w.players[owner].popUsed >= w.players[owner].popCap - 2) {
+      if (w.canAfford(owner, { wood: 60 })) {
         const spot = this.findBuildSpot(tc!);
-        if (spot) w.build(this.owner, 'house', spot);
+        if (spot) w.build(owner, 'house', spot);
       }
     }
 
@@ -65,8 +71,8 @@ export class AI {
 
     // 6) Attack wave when enough soldiers
     if (soldiers.length >= 6) {
-      const enemyUnits = w.units.filter((u) => u.owner === 0);
-      const enemyBuildings = w.buildings.filter((b) => b.alive && b.owner === 0);
+      const enemyUnits = w.units.filter((u) => u.owner !== owner);
+      const enemyBuildings = w.buildings.filter((b) => b.alive && b.owner !== owner);
       const targets = [...enemyUnits, ...enemyBuildings];
       if (targets.length > 0) {
         // attack the closest target to the AI's barracks / TC
