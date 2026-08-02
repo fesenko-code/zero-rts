@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+server/nakama-mcp/node_modules/
+server/nakama-mcp/dist/
+
+# Build output
+dist/
+
+# Nakama MCP is a vendored clone (third-party) — keep out of our repo
+server/nakama-mcp/
+
+# Docker volume data (Postgres)
+server/**/pgdata/
+*.db
+*.sqlite
+
+# Env / secrets — DO NOT COMMIT
+.env
+.env.local
+*.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Obsidian workspace (vault lives elsewhere)
+.obsidian/
+
+# Test artifacts
+coverage/

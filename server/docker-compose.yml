@@ -1,0 +1,38 @@
+# Nakama (Heroic Labs) + Postgres for ZERO RTS
+# Local dev server: auth, lobby, matchmaking, realtime socket, storage.
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: zero-postgres
+    environment:
+      POSTGRES_USER: nakama
+      POSTGRES_PASSWORD: localdb
+      POSTGRES_DB: nakama
+    volumes:
+      - zero-pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nakama -d nakama"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nakama:
+    image: heroiclabs/nakama:3.25.0
+    container_name: zero-nakama
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./nakama.yml:/nakama/config/nakama.yml:ro
+    entrypoint: ["/bin/sh", "-c", "/nakama/nakama migrate up --config /nakama/config/nakama.yml && /nakama/nakama --config /nakama/config/nakama.yml --runtime.http_key zero_dev_key --socket.server_key zero_dev_key"]
+    ports:
+      - "7349:7349"   # gRPC (SDK)
+      - "7350:7350"   # HTTP API
+      - "7351:7351"   # Nakama Console (admin UI)
+    restart: unless-stopped
+
+volumes:
+  zero-pg-data:

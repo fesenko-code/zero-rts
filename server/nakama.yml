@@ -1,0 +1,19 @@
+name: zero-rts
+logger:
+  level: INFO
+  verbose: true
+session:
+  token_expiry_sec: 7200
+socket:
+  server_key: zero_dev_key
+runtime:
+  http_key: zero_dev_key
+http:
+  server_key: zero_dev_key
+console:
+  username: admin
+  password: admin
+  port: 7351
+database:
+  address:
+    - postgres://nakama:localdb@postgres:5432/nakama?sslmode=disable

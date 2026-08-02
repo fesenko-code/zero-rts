@@ -1,0 +1,19 @@
+{
+  "name": "zero-rts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A modern open-source spiritual successor to 0 A.D., built from scratch on TypeScript + PixiJS.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  },
+  "dependencies": {
+    "pixi.js": "^8.6.6"
+  }
+}
