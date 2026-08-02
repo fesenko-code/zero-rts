@@ -153,18 +153,32 @@ export class World {
   // ---- Ordering API (used by input + AI) ----
   issueMove(unit: Unit, to: Vec2) {
     const path = this.grid.findPath(unit.pos, to);
-    unit.orderMove(to, path.length ? path : [to]);
+    if (path.length) {
+      unit.orderMove(to, [...path.slice(1), { ...to }]);
+    } else {
+      unit.orderMove(to, [{ ...to }]);
+    }
   }
 
   issueGather(unit: Unit, node: ResourceNode) {
     if (!node.alive) return;
     const path = this.grid.findPath(unit.pos, node.pos);
-    unit.orderGather(node, path.length ? path : [node.pos]);
+    // Replace the final waypoint with the actual node position (findPath returns
+    // cell centers, which would stop the unit short of / offset from the resource).
+    if (path.length) {
+      unit.orderGather(node, [...path.slice(1), { ...node.pos }]);
+    } else {
+      unit.orderGather(node, [{ ...node.pos }]);
+    }
   }
 
   issueAttack(unit: Unit, target: Unit | Building) {
     const path = this.grid.findPath(unit.pos, target.pos);
-    unit.orderAttack(target, path.length ? path : [target.pos]);
+    if (path.length) {
+      unit.orderAttack(target, [...path.slice(1), { ...target.pos }]);
+    } else {
+      unit.orderAttack(target, [{ ...target.pos }]);
+    }
   }
 
   // find nearest resource of given type to a position
@@ -243,9 +257,11 @@ export class World {
     // returns true if reached final destination
     if (u.path.length === 0) return true;
     const wp = u.path[0];
-    const d = dist(u.pos, wp);
     const spd = u.def.speed;
-    if (d < 4) {
+    // Arrival threshold must exceed one simulation step, otherwise we delete
+    // the waypoint before the unit actually reaches it (caused the MOVED:0 bug).
+    const arrive = Math.max(6, spd * dt * 1.5);
+    if (dist(u.pos, wp) < arrive) {
       u.path.shift();
       if (u.path.length === 0) return true;
       // continue to next waypoint same frame
@@ -255,11 +271,13 @@ export class World {
   }
 
   private moveToward(u: Unit, wp: Vec2, dt: number): boolean {
-    const d = dist(u.pos, wp);
     const spd = u.def.speed;
-    if (d < 4) return true;
+    const stepLen = spd * dt;
+    const arrive = Math.max(6, stepLen * 1.5);
+    if (dist(u.pos, wp) < arrive) return true;
+    const d = dist(u.pos, wp);
     const dir = norm(sub(wp, u.pos));
-    const step = Math.min(spd * dt, d);
+    const step = Math.min(stepLen, d);
     u.pos = add(u.pos, scale(dir, step));
     return false;
   }
