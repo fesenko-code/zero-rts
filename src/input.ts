@@ -3,7 +3,7 @@ import { World } from './world';
 import { Renderer } from './render';
 import { Unit, Building, ResourceNode } from './entities';
 import { dist, Vec2 } from './math';
-import { TECHS } from './config';
+import { TECHS, MAP_W, MAP_H } from './config';
 import { NetCmd } from './types';
 
 // Input controller: selection box, right-click commands, hotkeys.
@@ -49,6 +49,16 @@ export class Input {
   private onDown(e: any) {
     this.r.showHint = false;
     const p = this.evPos(e);
+    // minimap click -> recenter camera (don't start selection)
+    const mmS = this.r.minimapSize;
+    const mmX = this.app.screen.width - mmS - 14;
+    const mmY = 40;
+    if (p.x >= mmX && p.x <= mmX + mmS && p.y >= mmY && p.y <= mmY + mmS) {
+      const wx = (p.x - mmX) / mmS * Math.max(MAP_W, MAP_H);
+      const wy = (p.y - mmY) / mmS * Math.max(MAP_H, MAP_W);
+      this.r.centerCameraOn(wx, wy);
+      return;
+    }
     if (e.button === 0) {
       // left: start selection (or cancel build mode)
       if (this.buildMode) { this.placeBuilding(p); return; }

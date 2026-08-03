@@ -145,6 +145,8 @@ export class Renderer {
   // ---- HUD ----
   hudText: Text[] = [];
   showHint = true; // startup control hint; hidden after first player action
+  minimap = new Graphics(); // persistent minimap layer (redrawn each frame)
+  minimapSize = 180;
   drawHud() {
     for (const t of this.hudText) t.destroy();
     this.hudText = [];
@@ -281,6 +283,44 @@ export class Renderer {
       this.hud.addChild(banner);
       this.hudText.push(banner);
     }
+
+    this.drawMinimap();
+  }
+
+  private drawMinimap() {
+    const s = this.minimapSize;
+    const mx = this.app.screen.width - s - 14; // top-right corner
+    const my = 40;
+    const scale = s / Math.max(MAP_W, MAP_H);
+    const mm = this.minimap;
+    mm.clear();
+    // background
+    mm.rect(mx, my, s, s).fill({ color: 0x0a0d11, alpha: 0.85 });
+    mm.rect(mx, my, s, s).stroke({ width: 1, color: 0x3a4a55, alpha: 0.9 });
+    // terrain hint: draw resource nodes faintly
+    for (const n of this.world.resources) {
+      if (!n.alive) continue;
+      const c = n.type === 'wood' ? 0x3a5a30 : n.type === 'stone' ? 0x4a4f55 : n.type === 'gold' ? 0x6a5a20 : 0x3a5a2a;
+      mm.rect(mx + n.pos.x * scale, my + n.pos.y * scale, 2, 2).fill(c);
+    }
+    // buildings
+    for (const b of this.world.buildings) {
+      if (!b.alive) continue;
+      const col = b.owner === 0 ? 0x6fe08a : 0xe06f6f;
+      mm.rect(mx + b.pos.x * scale - 2, my + b.pos.y * scale - 2, 4, 4).fill(col);
+    }
+    // units
+    for (const u of this.world.units) {
+      const col = u.owner === 0 ? 0x9bf0b0 : 0xf09b9b;
+      mm.rect(mx + u.pos.x * scale, my + u.pos.y * scale, 1.5, 1.5).fill(col);
+    }
+    // viewport rectangle (where the camera currently looks)
+    const vx = mx + this.cam.x * scale;
+    const vy = my + this.cam.y * scale;
+    const vw = this.app.screen.width * scale;
+    const vh = this.app.screen.height * scale;
+    mm.rect(vx, vy, vw, vh).stroke({ width: 1, color: 0xffe066, alpha: 0.9 });
+    if (!this.hud.children.includes(mm)) this.hud.addChild(mm);
   }
 
   centerCameraOn(x: number, y: number) {
