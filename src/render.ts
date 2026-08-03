@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { World } from './world';
-import { MAP_W, MAP_H, COLORS, TILE, TECHS } from './config';
+import { MAP_W, MAP_H, COLORS, TILE, TECHS, BUILDING, TRAIN } from './config';
 import { Unit } from './entities';
 
 export class Renderer {
@@ -284,7 +284,21 @@ export class Renderer {
       this.hudText.push(banner);
     }
 
+    // ---- paused banner ----
+    if ((window as unknown as { __zero?: { paused?: boolean } }).__zero?.paused) {
+      const pb = new Text({
+        text: 'PAUSED  (press P to resume)',
+        style: { fill: 0xffe066, fontSize: 26, fontFamily: 'monospace', fontWeight: 'bold' },
+      });
+      pb.anchor.set(0.5);
+      pb.x = this.app.screen.width / 2;
+      pb.y = this.app.screen.height / 2;
+      this.hud.addChild(pb);
+      this.hudText.push(pb);
+    }
+
     this.drawMinimap();
+    this.drawBuildPanel();
   }
 
   private drawMinimap() {
@@ -321,6 +335,69 @@ export class Renderer {
     const vh = this.app.screen.height * scale;
     mm.rect(vx, vy, vw, vh).stroke({ width: 1, color: 0xffe066, alpha: 0.9 });
     if (!this.hud.children.includes(mm)) this.hud.addChild(mm);
+  }
+
+  private drawBuildPanel() {
+    const p = this.world.players[0];
+    const x = 14;
+    let y = 40;
+    const lineH = 18;
+    const bp = new Graphics();
+    bp.clear();
+    // panel background
+    bp.rect(x, y, 230, 232).fill({ color: 0x0c0f14, alpha: 0.78 });
+    bp.rect(x, y, 230, 232).stroke({ width: 1, color: 0x3a4a55, alpha: 0.9 });
+    this.hud.addChild(bp);
+    this.hudText.push(bp as unknown as Text);
+
+    const canAfford = (cost: Partial<{ food: number; wood: number; stone: number; gold: number }>) => {
+      for (const k of Object.keys(cost) as (keyof typeof cost)[]) {
+        if ((p.res[k] ?? 0) < (cost[k] ?? 0)) return false;
+      }
+      return true;
+    };
+    const costStr = (cost: Partial<{ food: number; wood: number; stone: number; gold: number }>) =>
+      Object.entries(cost).map(([k, v]) => `${v}${k[0]}`).join(' ');
+
+    const rows: string[] = [];
+    rows.push('BUILD (hotkey):');
+    rows.push(`  B Barracks  ${costStr(BUILDING.barracks.cost)}`);
+    rows.push(`  H House    ${costStr(BUILDING.house.cost)}`);
+    rows.push(`  F Farm     ${costStr(BUILDING.farm.cost)}`);
+    rows.push(`  T Tower    ${costStr(BUILDING.tower.cost)}`);
+    rows.push('TRAIN (barracks/TC):');
+    rows.push(`  V Villager ${costStr(TRAIN.villager.cost)}`);
+    rows.push(`  S Soldier ${costStr(TRAIN.soldier.cost)}`);
+    rows.push(`  A Archer  ${costStr(TRAIN.archer.cost)}`);
+    rows.push(`  C Cavalry ${costStr(TRAIN.cavalry.cost)}`);
+    rows.push('RESEARCH:');
+    rows.push(`  R next tech`);
+
+    // affordability check per actionable line (rough mapping)
+    const affordLine = (idx: number): boolean => {
+    if (idx === 1) return canAfford(BUILDING.barracks.cost);
+      if (idx === 2) return canAfford(BUILDING.house.cost);
+      if (idx === 3) return canAfford(BUILDING.farm.cost);
+      if (idx === 4) return canAfford(BUILDING.tower.cost);
+      if (idx === 6) return canAfford(TRAIN.villager.cost);
+      if (idx === 7) return canAfford(TRAIN.soldier.cost);
+      if (idx === 8) return canAfford(TRAIN.archer.cost);
+      if (idx === 9) return canAfford(TRAIN.cavalry.cost);
+      return true;
+    };
+
+    rows.forEach((line, i) => {
+      const isHeader = line.endsWith(':');
+      const afford = affordLine(i);
+      const col = isHeader ? 0x9bd1a8 : afford ? 0xe8e8e8 : 0x6a7075;
+      const t = new Text({
+        text: line,
+        style: { fill: col, fontSize: isHeader ? 13 : 12, fontFamily: 'monospace', fontWeight: isHeader ? 'bold' : 'normal' },
+      });
+      t.x = x + 10; t.y = y + 8 + i * lineH;
+      this.hud.addChild(t);
+      this.hudText.push(t);
+    });
   }
 
   centerCameraOn(x: number, y: number) {

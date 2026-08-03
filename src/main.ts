@@ -72,7 +72,7 @@ async function boot() {
   if (pTC) renderer.centerCameraOn(pTC.pos.x, pTC.pos.y);
 
   // expose for debugging / tests
-  (window as unknown as Record<string, unknown>).__zero = { world, renderer, net, role };
+  (window as unknown as Record<string, unknown>).__zero = { world, renderer, net, role, paused: false };
   let last = performance.now();
   let acc = 0;
   app.ticker.add(() => {
@@ -81,7 +81,7 @@ async function boot() {
     last = now;
     if (frame > 0.25) frame = 0.25; // avoid spiral of death
     // Host simulates; guest only renders snapshots received from host.
-    if (role === 'host') {
+    if (role === 'host' && !(window as unknown as { __zero: { paused: boolean } }).__zero.paused) {
       acc += frame;
       while (acc >= SIM_TICK) {
         world.step(SIM_TICK);

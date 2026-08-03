@@ -183,6 +183,12 @@ export class Input {
   private onKey(e: any) {
     this.r.showHint = false;
     const k = e.key.toLowerCase();
+    if (k === 'p' || k === ' ' || k === 'spacebar') {
+      const z = (window as unknown as { __zero: { paused: boolean; renderer: { showHint: boolean } } }).__zero;
+      z.paused = !z.paused;
+      z.renderer.showHint = z.paused; // show controls overlay while paused for studying
+      return;
+    }
     if (k === 'b') this.buildMode = 'barracks';
     else if (k === 'h') this.buildMode = 'house';
     else if (k === 'f') this.buildMode = 'farm';
