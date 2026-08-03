@@ -192,6 +192,14 @@ export class Renderer {
     this.hudText.push(time);
     x = time.x + time.width + 20;
 
+    // epoch / phase
+    const epochName = this.world.researched.has('phase_town') ? 'Town Phase' : 'Village Phase';
+    const epoch = new Text({ text: epochName, style: { fill: 0xc9a8ff, fontSize: 13, fontFamily: 'monospace' } });
+    epoch.x = x; epoch.y = 8;
+    this.hud.addChild(epoch);
+    this.hudText.push(epoch);
+    x = epoch.x + epoch.width + 20;
+
     // research status
     const active = this.world.research.find((r) => r.owner === 0);
     if (active) {

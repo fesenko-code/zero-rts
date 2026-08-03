@@ -1,6 +1,7 @@
 import { World } from './world';
 import { Owner } from './types';
 import { Building } from './entities';
+import { TECHS } from './config';
 
 // A lightweight AI. By default it drives BOTH players so the game is alive
 // even without a human clicking (good for demos/testing). Pass a single owner
@@ -36,8 +37,8 @@ export class AI {
     for (let i = 0; i < villagers.length; i++) {
       const v = villagers[i];
       if (v.state === 'idle' && v.carryCount === 0) {
-        // ~1/2 of villagers gather wood (army units need wood), rest food
-        const wantWood = (i % 2 === 0) || w.players[owner].res.wood < 60;
+        // prioritize wood when we're short (need it for barracks + army)
+        const wantWood = w.players[owner].res.wood < 150 || (i % 2 === 0);
         const node = wantWood ? w.nearestResource(v.pos, 'wood') : w.nearestResource(v.pos, 'food');
         const fallback = wantWood ? w.nearestResource(v.pos, 'food') : w.nearestResource(v.pos, 'wood');
         if (node) w.issueGather(v, node);
@@ -45,14 +46,23 @@ export class AI {
       }
     }
 
-    // 3) Build a barracks if we don't have one and can afford
+    // 3) If we haven't reached Town Phase yet, build economy buildings (house/farm)
+    //    to satisfy the '5 buildings' gate before advancing.
     const tc = myBuildings.find((b) => b.kind === 'towncenter');
-    if (tc && !myBuildings.some((b) => b.kind === 'barracks') && w.canAfford(owner, { wood: 120 })) {
+    if (tc && !w.researched.has('phase_town')) {
+      if (myBuildings.length < 5 && w.canAfford(owner, { wood: 40 })) {
+        const spot = this.findBuildSpot(tc);
+        if (spot) w.build(owner, myBuildings.length % 2 === 0 ? 'house' : 'farm', spot);
+      }
+    }
+
+    // 3b) Build a barracks once Town Phase is reached and we can afford
+    if (tc && w.researched.has('phase_town') && !myBuildings.some((b) => b.kind === 'barracks') && w.canAfford(owner, { wood: 120 })) {
       const spot = this.findBuildSpot(tc);
       if (spot) w.build(owner, 'barracks', spot);
     }
 
-    // 4) Build houses when pop is tight
+    // 4) Build houses when pop is tight (or to grow pop cap)
     if (tc && w.players[owner].popUsed >= w.players[owner].popCap - 2) {
       if (w.canAfford(owner, { wood: 60 })) {
         const spot = this.findBuildSpot(tc);
@@ -60,8 +70,11 @@ export class AI {
       }
     }
 
-    // 2) Train more villagers if economy is small and pop allows
-    if (tc && villagers.length < 6) {
+    // 2) Train more villagers if economy is small and pop allows.
+    //    Pause villager training only when we can already afford Town Phase
+    //    (so we don't waste food that should go to the epoch research).
+    const canAffordTown = w.canAfford(owner, { food: 300, wood: 300 });
+    if (tc && villagers.length < 8 && !canAffordTown) {
       if (myBuildings.every((b) => b.trainQueue.length === 0)) {
         w.train(tc, 'villager');
       }
@@ -78,6 +91,14 @@ export class AI {
       if (archers < soldiersN * 0.5 && w.canAfford(owner, { wood: 40, gold: 30 })) kind = 'archer';
       else if (cavalry < soldiersN * 0.4 && w.canAfford(owner, { food: 60, wood: 40 })) kind = 'cavalry';
       if (army.length < 14) w.train(barracks, kind);
+    }
+
+    // 7) Research: advance to Town Phase when possible, then other techs
+    if (!w.researched.has('phase_town')) {
+      w.researchTech(owner, 'phase_town');
+    } else {
+      const next = TECHS.find((t) => t.id !== 'phase_village' && t.id !== 'phase_town' && !w.researched.has(t.id) && !w.research.some((r) => r.owner === owner && r.techId === t.id));
+      if (next) w.researchTech(owner, next.id);
     }
 
     // 6) Attack wave when enough army

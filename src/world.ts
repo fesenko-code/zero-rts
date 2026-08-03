@@ -31,6 +31,10 @@ export class World {
     ];
     if (map) this.loadFromTiled(map);
     else this.generate();
+    // auto-research the starting epoch (Village Phase)
+    for (const t of TECHS) {
+      if (t.autoResearch) this.researched.add(t.id);
+    }
   }
 
   private generate() {
@@ -134,8 +138,11 @@ export class World {
   recomputePop() {
     for (const p of this.players) {
       let cap = POP_CAP_BASE;
+      let used = 0;
       for (const b of this.buildings) if (b.alive && b.owner === p.owner) cap += b.population;
+      for (const u of this.units) if (u.owner === p.owner) used += TRAIN[u.kind].pop;
       p.popCap = cap;
+      p.popUsed = used;
     }
   }
 
@@ -212,6 +219,7 @@ export class World {
   // Train a unit from a building if affordable & pop available
   train(b: Building, kind: 'villager' | 'soldier' | 'archer' | 'cavalry'): boolean {
     const t = TRAIN[kind];
+    if (t.requiresPhase === 'town' && !this.researched.has('phase_town')) return false;
     if (!this.canAfford(b.owner, t.cost)) return false;
     const p = this.players[b.owner];
     if (p.popUsed + t.pop > p.popCap) return false;
@@ -223,7 +231,9 @@ export class World {
   }
 
   build(owner: Owner, kind: 'barracks' | 'house' | 'farm' | 'tower', pos: Vec2): boolean {
-    const cost = BUILDING[kind].cost as Partial<ResourceBag>;
+    const def = BUILDING[kind];
+    if (def.requiresPhase === 'town' && !this.researched.has('phase_town')) return false;
+    const cost = def.cost as Partial<ResourceBag>;
     if (!this.canAfford(owner, cost)) return false;
     this.spend(owner, cost);
     this.makeBuilding(owner, kind, pos);
@@ -240,6 +250,11 @@ export class World {
     if (tech.requires?.building) {
       const have = this.buildings.filter((b) => b.alive && b.owner === owner && b.kind === tech.requires!.building).length;
       if (have < (tech.requires.count ?? 1)) return false;
+    }
+    // gate: minimum population (for epoch advance)
+    if (tech.requires?.minPop) {
+      const p = this.players[owner];
+      if (p.popUsed < tech.requires.minPop) return false;
     }
     if (!this.canAfford(owner, tech.cost)) return false;
     this.spend(owner, tech.cost);

@@ -41,6 +41,7 @@ export interface BuildingDef {
   attack?: number;    // tower: damage per shot
   range?: number;     // tower: attack range
   attackInterval?: number; // tower: sec between shots
+  requiresPhase?: 'town'; // available only after advancing to Town Phase
 }
 
 export const BUILDING: Record<'towncenter' | 'barracks' | 'house' | 'farm' | 'tower', BuildingDef> = {
@@ -51,6 +52,7 @@ export const BUILDING: Record<'towncenter' | 'barracks' | 'house' | 'farm' | 'to
   barracks: {
     hp: 900, w: 110, h: 95, radius: 75, trains: ['soldier', 'archer', 'cavalry'],
     cost: { wood: 120 }, pop: 0, isDropOff: false, name: 'Barracks',
+    requiresPhase: 'town',
   },
   house: {
     hp: 450, w: 75, h: 75, radius: 55, trains: [],
@@ -72,13 +74,14 @@ export interface TrainDef {
   time: number; // seconds
   cost: Partial<ResourceBag>;
   pop: number;
+  requiresPhase?: 'town'; // available only after advancing to Town Phase
 }
 
 export const TRAIN: Record<'villager' | 'soldier' | 'archer' | 'cavalry', TrainDef> = {
   villager: { time: 7, cost: { food: 50 }, pop: 1 },
-  soldier: { time: 11, cost: { food: 40, wood: 20 }, pop: 1 },
-  archer: { time: 12, cost: { wood: 40, gold: 30 }, pop: 1 },
-  cavalry: { time: 16, cost: { food: 60, wood: 40 }, pop: 2 },
+  soldier: { time: 11, cost: { food: 40, wood: 20 }, pop: 1, requiresPhase: 'town' },
+  archer: { time: 12, cost: { wood: 40, gold: 30 }, pop: 1, requiresPhase: 'town' },
+  cavalry: { time: 16, cost: { food: 60, wood: 40 }, pop: 2, requiresPhase: 'town' },
 };
 
 export const COLORS = {
@@ -111,8 +114,9 @@ export interface Tech {
   cost: Partial<ResourceBag>;
   researchTime: number; // seconds
   mods: TechMod[];
-  // requires: number of buildings of a kind, or min pop — simplified gate
-  requires?: { building?: BuildingKind; count?: number };
+  // gate: buildings/pop/phase requirement (simplified, like 0 A.D. phase reqs)
+  requires?: { building?: BuildingKind; count?: number; minPop?: number; phase?: 'town' };
+  autoResearch?: boolean; // researched automatically at game start (default phase)
 }
 
 export const TECHS: Tech[] = [
@@ -150,6 +154,27 @@ export const TECHS: Tech[] = [
     mods: [
       { scope: 'building', kind: '*', field: 'hp', mult: 1.25 },
       { scope: 'building', kind: 'tower', field: 'attack', mult: 1.3 },
+    ],
+  },
+  // ---- Epochs (phases), like 0 A.D. ----
+  {
+    id: 'phase_village',
+    name: 'Village Phase',
+    cost: {},
+    researchTime: 0,
+    mods: [],
+    autoResearch: true, // default starting epoch
+  },
+  {
+    id: 'phase_town',
+    name: 'Town Phase',
+    cost: { food: 300, wood: 300 },
+    researchTime: 30,
+    requires: { count: 4, minPop: 8 }, // 4 buildings + 8 pop to advance
+    mods: [
+      { scope: 'building', kind: '*', field: 'hp', mult: 1.2 },     // +20% structure durability
+      { scope: 'unit', kind: '*', field: 'speed', mult: 1.1 },      // +10% move speed
+      { scope: 'unit', kind: 'villager', field: 'gather', mult: 1.15 }, // +15% gather
     ],
   },
 ];
