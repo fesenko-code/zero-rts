@@ -47,6 +47,7 @@ export class Input {
   }
 
   private onDown(e: any) {
+    this.r.showHint = false;
     const p = this.evPos(e);
     if (e.button === 0) {
       // left: start selection (or cancel build mode)
@@ -116,6 +117,7 @@ export class Input {
   }
 
   private command(p: Vec2) {
+    this.r.showHint = false;
     const wpt = this.r.screenToWorld(p.x, p.y);
     const sel = this.r.selected;
     if (sel.length === 0) return;
@@ -169,6 +171,7 @@ export class Input {
   }
 
   private onKey(e: any) {
+    this.r.showHint = false;
     const k = e.key.toLowerCase();
     if (k === 'b') this.buildMode = 'barracks';
     else if (k === 'h') this.buildMode = 'house';

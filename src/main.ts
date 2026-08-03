@@ -27,6 +27,19 @@ async function boot() {
   //   ?mode=human  -> player 0 is human (mouse/keyboard), player 1 is AI
   const mode = new URLSearchParams(location.search).get('mode') === 'human' ? 'human' : 'ai';
   const ai = mode === 'ai' ? new AI(world) : new AI(world, 1);
+
+  // Human mode: give starting villagers an auto-gather order so the economy
+  // doesn't stall while the player learns the controls (they can override anytime).
+  if (mode === 'human') {
+    const v0 = world.units.filter((u) => u.owner === 0 && u.kind === 'villager');
+    v0.forEach((vill, i) => {
+      const wantWood = i % 2 === 0;
+      const node = wantWood
+        ? world.nearestResource(vill.pos, 'wood') ?? world.nearestResource(vill.pos, 'food')
+        : world.nearestResource(vill.pos, 'food') ?? world.nearestResource(vill.pos, 'wood');
+      if (node) world.issueGather(vill, node);
+    });
+  }
   const renderer = new Renderer(app, world);
   const input = new Input(world, renderer, app);
 

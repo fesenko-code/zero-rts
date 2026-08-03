@@ -144,6 +144,7 @@ export class Renderer {
 
   // ---- HUD ----
   hudText: Text[] = [];
+  showHint = true; // startup control hint; hidden after first player action
   drawHud() {
     for (const t of this.hudText) t.destroy();
     this.hudText = [];
@@ -241,6 +242,33 @@ export class Renderer {
     sel.x = w - sel.width - 14; sel.y = h - botH + 4;
     this.hud.addChild(sel);
     this.hudText.push(sel);
+
+    // ---- startup hint overlay (hidden after first player action) ----
+    if (this.showHint) {
+      const guide = [
+        'HOW TO PLAY (you are GREEN / player 0):',
+        'Left-drag: select units   Right-click: move / gather / attack',
+        'B=Barracks  H=House  F=Farm  T=Tower   (then left-click to place)',
+        'V=Villager  S=Soldier  A=Archer  C=Cavalry   R=Research tech',
+        'Starting villagers already gather food/wood. Build an army and crush the enemy!',
+      ].join('\n');
+      const boxW = Math.min(720, w - 40);
+      const boxH = 132;
+      const bx = (w - boxW) / 2;
+      const by = 56;
+      const box = new Graphics();
+      box.roundRect(bx, by, boxW, boxH, 8).fill({ color: 0x0c0f14, alpha: 0.82 });
+      box.roundRect(bx, by, boxW, boxH, 8).stroke({ width: 1, color: 0x3a4a55, alpha: 0.9 });
+      this.hud.addChild(box);
+      this.hudText.push(box as unknown as Text);
+      const gt = new Text({
+        text: guide,
+        style: { fill: 0xe8e8e8, fontSize: 14, fontFamily: 'monospace', align: 'left', lineHeight: 22 },
+      });
+      gt.x = bx + 18; gt.y = by + 16;
+      this.hud.addChild(gt);
+      this.hudText.push(gt);
+    }
 
     // ---- winner overlay ----
     if (this.world.winner !== null) {
